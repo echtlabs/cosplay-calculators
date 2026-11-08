@@ -1,0 +1,73 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Con-Budget-Rechner: Kosten für die Convention planen" desc="Ticket, Anreise, Hotel, Essen und Einkaufsgeld fürs Con kalkulieren – pro Person, mit Puffer und Link zum Teilen." path="con-budget/" h1="Con-Budget-Rechner">
+<h1>Con-Budget-Rechner</h1>
+<p class="lead">Was kostet dich das Weekend? Trage Ticket, Anreise, Hotel, Essen und Einkaufsgeld ein – das Ergebnis kommt pro Person und mit Puffer.</p>
+<form id="f" class="card">
+<div class="grid">
+<label>Personen<input name="p" inputmode="decimal" value="1"></label>
+<label>Tage auf der Con<input name="t" inputmode="decimal" value="3"></label>
+<label>Nächte<input name="n" inputmode="decimal" value="2"></label>
+<label>Puffer (%)<input name="b" inputmode="decimal" value="10"></label>
+</div>
+<div class="grid">
+<label>Ticket / Badge pro Person (€)<input name="tk" inputmode="decimal" value="45"></label>
+<label>Anreise hin + zurück pro Person (€)<input name="an" inputmode="decimal" value="40"></label>
+<label>Übernachtung pro Nacht gesamt (€)<small>Zimmerpreis, wird geteilt</small><input name="np" inputmode="decimal" value="80"></label>
+<label>Essen pro Tag pro Person (€)<input name="ed" inputmode="decimal" value="25"></label>
+</div>
+<div class="grid">
+<label>Einkaufsgeld pro Person (€)<small>Merch, Fotoshootings, Souvenirs</small><input name="sh" inputmode="decimal" value="60"></label>
+<label>Sonstiges pro Person (€)<small>Eintritte, Garderobe, Transport vor Ort</small><input name="so" inputmode="decimal" value="20"></label>
+</div>
+</form>
+<div id="out" class="card" aria-live="polite"></div>
+<div class="row noprint"><button id="print">Drucken</button><button id="share" class="g">Link kopieren</button></div>
+<details><summary>Annahmen und Grenzen</summary><ul>
+<li>Alle Beträge sind Richtwerte in Euro. Preise schwanken nach Stadt, Saison und Con.</li>
+<li>Die Übernachtung ist der Gesamtpreis des Zimmers pro Nacht und wird auf alle Personen geteilt.</li>
+<li>Essen ist ein Richtwert pro Tag – Con-Restaurants und Lieferdienste sind oft teurer als zu Hause.</li>
+<li>Der Puffer fängt Preisänderungen, spontane Einkäufe und Überraschungen ab.</li>
+<li>Der geteilte Link enthält nur deine Eingaben im URL-Hash. Es geht nichts an einen Server.</li>
+<li>Für die Kostümabrechnung mit der Gruppe gibt es den <a href="../budget-rechner/">Budget- und Kostenteiler</a>.</li>
+</ul></details>
+</Base>
+<style>
+label small{display:block;margin-top:2px}
+</style>
+<script>
+import { $, num, eur, save, load, copyLink, bind } from '../lib/u.js';
+const F = $('#f'), out = $('#out');
+const D = { p: 1, t: 3, n: 2, b: 10, tk: 45, an: 40, np: 80, ed: 25, sh: 60, so: 20 };
+const st = load() || {};
+for (const k of Object.keys(D)) F[k].value = st[k] ?? D[k];
+function calc() {
+  const P = num(F.p.value), T = num(F.t.value), N = num(F.n.value) || 0;
+  if (!(P >= 1 && T >= 1)) { out.innerHTML = '<p class="warn">Bitte mindestens eine Person und einen Tag eingeben.</p>'; return; }
+  const tk = num(F.tk.value) || 0, an = num(F.an.value) || 0, np = num(F.np.value) || 0;
+  const ed = num(F.ed.value) || 0, sh = num(F.sh.value) || 0, so = num(F.so.value) || 0;
+  const buf = Math.max(0, num(F.b.value) || 0) / 100;
+  const rows = [
+    ['Ticket / Badge', tk * P, tk],
+    ['Anreise', an * P, an],
+    ['Übernachtung', N * np, (N * np) / P],
+    ['Essen', T * ed * P, T * ed],
+    ['Einkaufsgeld', sh * P, sh],
+    ['Sonstiges', so * P, so],
+  ].filter(([, tot]) => tot > 0);
+  const sub = rows.reduce((s, [, tot]) => s + tot, 0);
+  const puffer = sub * buf, total = sub + puffer, per = total / P;
+  let h = `<p class="big">${eur(total)}</p><p>${P > 1 ? `Gesamt für ${P} Personen – pro Person <b>${eur(per)}</b>.` : `Pro Person: <b>${eur(per)}</b>.`}</p>`;
+  h += `<table><tr><th>Posten</th><th>Gesamt</th><th>pro Person</th></tr>${rows.map(([n, tot, pp]) => `<tr><td>${n}</td><td>${eur(tot)}</td><td>${eur(pp)}</td></tr>`).join('')}`;
+  if (puffer > 0) h += `<tr><td>Puffer (${F.b.value} %)</td><td>${eur(puffer)}</td><td>${eur(puffer / P)}</td></tr>`;
+  h += `<tr><td><b>Summe</b></td><td><b>${eur(total)}</b></td><td><b>${eur(per)}</b></td></tr></table>`;
+  if (N > 0 && N >= T) h += '<p class="warn">Die Nächte sind größer oder gleich den Tagen – stimmt das?</p>';
+  if (T > 1 && N === 0) h += '<p class="hint">Keine Übernachtung eingerechnet.</p>';
+  out.innerHTML = h;
+  save({ p: F.p.value, t: F.t.value, n: F.n.value, b: F.b.value, tk: F.tk.value, an: F.an.value, np: F.np.value, ed: F.ed.value, sh: F.sh.value, so: F.so.value });
+}
+$('#print').onclick = () => print();
+$('#share').onclick = (e) => copyLink(e.target);
+bind(F, calc);
+</script>

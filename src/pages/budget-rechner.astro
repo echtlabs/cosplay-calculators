@@ -1,0 +1,60 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Cosplay Budget-Rechner mit Kostenteiler für Gruppen" desc="Erfasse alle Kosten deines Cosplays, behalte dein Budget im Blick und rechne Gruppenkosten fair ab. Mit Kategorien und Link zum Teilen." path="budget-rechner/" h1="Cosplay Budget- und Kostenteiler">
+<h1>Budget- und Kostenteiler</h1>
+<p class="lead">Trage alle Posten ein, sieh die Summe pro Kategorie und rechne bei Gruppen aus, wer wem wie viel zahlt.</p>
+<form id="f" class="card">
+<div class="grid">
+<label>Personen <small>(durch Komma getrennt)</small><input name="p"></label>
+<label>Gesamtbudget (€, optional)<input name="b" inputmode="decimal"></label>
+</div>
+<div id="rows"></div>
+<button type="button" class="g" id="add">Posten hinzufügen</button>
+<p class="hint">Haken bei „geteilt“: Der Betrag wird auf alle Personen verteilt. Ohne Haken gehört er der Person, die bezahlt hat.</p>
+</form>
+<div id="out" class="card" aria-live="polite"></div>
+<div class="row noprint"><button id="print">Drucken</button><button id="share" class="g">Link kopieren</button></div>
+</Base>
+<script>
+import { $, num, eur, esc, save, load, copyLink, bind } from '../lib/u.js';
+const CATS = ['Kostüm', 'Perücke', 'Schuhe', 'Make-up und Linsen', 'Props und Material', 'Versand und Zoll', 'Eintritt und Reise', 'Foto', 'Sonstiges'];
+const F = $('#f'), rows = $('#rows'), out = $('#out');
+const st = load() || { p: 'Ich', b: '', i: [['Kostüm', 'Kostüm', '', 'Ich', false]] };
+F.p.value = st.p; F.b.value = st.b;
+const people = () => [...new Set(F.p.value.split(',').map((s) => s.trim()).filter(Boolean))].slice(0, 12);
+const opts = (sel, list, cur) => { sel.innerHTML = list.map((x) => `<option>${esc(x)}</option>`).join(''); if (list.includes(cur)) sel.value = cur; };
+const add = (n = '', c = CATS[0], a = '', p = '', sh = false) => {
+  const d = document.createElement('div'); d.className = 'rb';
+  d.innerHTML = '<input placeholder="Posten" aria-label="Posten"><select aria-label="Kategorie"></select><input inputmode="decimal" placeholder="€" aria-label="Betrag in Euro"><select aria-label="Bezahlt von"></select><label class="sh"><input type="checkbox"> geteilt</label><button type="button" class="g" aria-label="Posten entfernen">×</button>';
+  const [i1, s1, i2, s2, lb] = d.children;
+  i1.value = n; opts(s1, CATS, c); i2.value = a; opts(s2, people(), p); lb.firstChild.checked = !!sh; rows.append(d);
+};
+st.i.forEach((r) => add(...r));
+$('#add').onclick = () => { add(); };
+rows.onclick = (e) => { if (e.target.tagName === 'BUTTON') { e.target.parentNode.remove(); calc(); } };
+function calc() {
+  const P = people();
+  if (!P.length) { out.textContent = 'Bitte mindestens eine Person eintragen.'; return; }
+  [...rows.children].forEach((r) => opts(r.children[3], P, r.children[3].value));
+  const it = [...rows.children].map((r) => ({ n: r.children[0].value, c: r.children[1].value, ar: r.children[2].value, a: num(r.children[2].value) || 0, pn: r.children[3].value, p: Math.max(0, P.indexOf(r.children[3].value)), sh: r.children[4].firstChild.checked }));
+  const total = it.reduce((s, x) => s + x.a, 0), cat = {}, paid = P.map(() => 0), owe = P.map(() => 0);
+  for (const x of it) { cat[x.c] = (cat[x.c] || 0) + x.a; paid[x.p] += x.a; if (x.sh) owe.forEach((_, i) => (owe[i] += x.a / P.length)); else owe[x.p] += x.a; }
+  const b = num(F.b.value);
+  let h = `<p class="big">${eur(total)}</p>`;
+  if (b > 0) h += total > b ? `<p class="warn">Du liegst ${eur(total - b)} über dem Budget.</p>` : `<p>Noch frei: <b>${eur(b - total)}</b> von ${eur(b)}.</p>`;
+  h += `<table><tr><th>Kategorie</th><th>Summe</th></tr>${Object.entries(cat).filter(([, v]) => v).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${eur(v)}</td></tr>`).join('')}</table>`;
+  if (P.length > 1) {
+    h += `<h2>Abrechnung</h2><table><tr><th>Person</th><th>Bezahlt</th><th>Anteil</th><th>Saldo</th></tr>${P.map((n, i) => `<tr><td>${esc(n)}</td><td>${eur(paid[i])}</td><td>${eur(owe[i])}</td><td>${eur(paid[i] - owe[i])}</td></tr>`).join('')}</table>`;
+    const D = [], K = [], tx = [];
+    P.forEach((n, i) => { const d = paid[i] - owe[i]; if (d < -0.005) D.push([n, -d]); else if (d > 0.005) K.push([n, d]); });
+    for (const d of D) while (d[1] > 0.005 && K.length) { const k = K[0], x = Math.min(d[1], k[1]); tx.push(`${esc(d[0])} zahlt ${eur(x)} an ${esc(k[0])}`); d[1] -= x; k[1] -= x; if (k[1] <= 0.005) K.shift(); }
+    h += tx.length ? `<ul>${tx.map((t) => `<li>${t}</li>`).join('')}</ul>` : '<p>Alles ausgeglichen.</p>';
+  }
+  out.innerHTML = h;
+  save({ p: F.p.value, b: F.b.value, i: it.map((x) => [x.n, x.c, x.ar, x.pn, x.sh]) });
+}
+$('#print').onclick = () => print();
+$('#share').onclick = (e) => copyLink(e.target);
+bind(F, calc);
+</script>

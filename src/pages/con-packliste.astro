@@ -1,0 +1,153 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Con-Packliste für Cosplay: alles fürs Weekend einpacken" desc="Checkliste für die Convention: Ticket, Kostüm, Reparatur-Kit, Perücke und Make-up. Mit Fortschrittsbalken, eigenen Punkten und Druckfunktion." path="con-packliste/" h1="Con-Packliste">
+<div class="cpl">
+<h1>Con-Packliste</h1>
+<p class="lead">Nichts vergessen: Ticket, Kostüm, Reparatur-Kit, Perücke. Hake ab, was schon im Koffer liegt – die Liste bleibt in deinem Browser gespeichert.</p>
+<div class="card">
+<div class="bar" aria-hidden="true"><div class="bar-fill" id="fill"></div></div>
+<p class="hint" id="count" role="status"></p>
+<div id="cats"></div>
+<div class="rb noprint">
+<input id="newName" placeholder="Eigener Punkt, z. B. Linsenflüssigkeit" aria-label="Eigener Punkt">
+<select id="newCat" aria-label="Kategorie"></select>
+<button type="button" id="add">Hinzufügen</button>
+</div>
+<div class="row noprint"><button id="print">Drucken</button><button id="reset" class="g">Zurücksetzen</button></div>
+</div>
+<details><summary>So funktioniert's</summary><ul>
+<li>Dein Hakenstand wird nur lokal in deinem Browser gespeichert – kein Konto, kein Server, keine Übertragung.</li>
+<li>„Drucken" erzeugt eine Liste mit deinem aktuellen Stand: abgehakte Punkte sind angekreuzt und durchgestrichen, die offenen Kästchen bleiben leer zum Abhaken.</li>
+<li>Eigene Punkte lassen sich jederzeit ergänzen und wieder entfernen.</li>
+<li>Für die Abrechnung nach der Con gibt es den <a href="../budget-rechner/">Budget- und Kostenteiler</a>.</li>
+</ul></details>
+</div>
+</Base>
+<script>
+import { $, esc } from '../lib/u.js';
+const CATS = {
+  'Ticket & Organisation': [
+    'Ticket / Badge (gedruckt oder auf dem Handy)',
+    'Ausweis (Personalausweis oder Reisepass)',
+    'Fahrschein für Hin- und Rückreise',
+    'Hotelbuchung offline gespeichert',
+    'Bargeld in kleinen Scheinen',
+    'EC- oder Kreditkarte',
+    'Notfallkontakte am Handy hinterlegt',
+  ],
+  'Anreise & Vor Ort': [
+    'Powerbank und Ladekabel',
+    'Wasserflasche',
+    'Snacks für zwischendurch',
+    'Erste-Hilfe-Kleinigkeit (Pflaster, Schmerzmittel)',
+    'Regen- oder Sonnenschutz',
+    'Stofftasche für Einkäufe',
+  ],
+  'Kostüm & Props': [
+    'Kostüm komplett (vorher angeprobt!)',
+    'Schuhe, schon eingelaufen',
+    'Prop oder Waffe sicher verpackt',
+    'Gaffer- oder Doppelklebeband',
+    'Nähset: Nadel, Faden, Sicherheitsnadeln',
+    'Sekundenkleber',
+    'Kabelbinder oder Draht für Verstärkung',
+    'Ersatzteile (Knöpfe, Ringe, Kleinteile)',
+    'Bodytape oder Maskenband',
+  ],
+  'Perücke & Make-up': [
+    'Perücke und Perückennetz',
+    'Haarnadeln und Haargummi',
+    'Kamm oder Bürste',
+    'Make-up und Pinsel',
+    'Fixierspray',
+    'Abschminkmittel und Wattestäbchen',
+    'Kontaktlinsen und Flüssigkeit (falls verwendet)',
+  ],
+  'Foto & Social': [
+    'Kamera, Akkus und Speicherkarte',
+    'Visitenkarten oder Social-Karten',
+    'Treffpunkt und Zeit mit der Gruppe abstimmen',
+  ],
+  'Sonstiges': [
+    'Wechselkleidung',
+    'Deodorant',
+    'Müllbeutel',
+    'Kleine Taschenlampe',
+    'Persönliche Medikamente',
+  ],
+};
+const KEY = 'ec-packliste-v1';
+let st = { done: {}, custom: {} };
+try { const raw = localStorage.getItem(KEY); if (raw) st = Object.assign(st, JSON.parse(raw)); } catch { /* egal */ }
+const cats = Object.keys(CATS);
+const keyOf = (c, n) => c + ' ' + n;
+const items = (c) => [...(CATS[c] || []), ...(st.custom[c] || [])];
+const isCustom = (c, n) => !(CATS[c] || []).includes(n);
+function progress() {
+  let total = 0, done = 0;
+  for (const c of cats) for (const n of items(c)) { total++; if (st.done[keyOf(c, n)]) done++; }
+  $('#fill').style.width = (total ? (done / total) * 100 : 0) + '%';
+  $('#count').textContent = total ? `${done} von ${total} gepackt${done === total ? ' – fertig, viel Spaß auf der Con!' : ''}` : '';
+}
+function render() {
+  $('#cats').innerHTML = cats.map((c) => `
+<section class="cat"><h2>${esc(c)}</h2><ul>${items(c).map((n) => `
+<li><label class="ck"><input type="checkbox" data-c="${esc(c)}" data-n="${esc(n)}"${st.done[keyOf(c, n)] ? ' checked' : ''}><span class="box" aria-hidden="true"></span><span class="txt">${esc(n)}</span></label>${isCustom(c, n) ? `<button type="button" class="x" data-c="${esc(c)}" data-n="${esc(n)}" aria-label="Punkt entfernen">×</button>` : ''}</li>`).join('')}</ul></section>`).join('');
+  progress();
+}
+const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch { /* egal */ } };
+$('#cats').addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t.matches || !t.matches('input[type=checkbox]')) return;
+  const k = keyOf(t.dataset.c, t.dataset.n);
+  if (t.checked) st.done[k] = 1; else delete st.done[k];
+  persist(); progress();
+});
+$('#cats').addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('button.x');
+  if (!b) return;
+  const { c, n } = b.dataset;
+  st.custom[c] = (st.custom[c] || []).filter((x) => x !== n);
+  delete st.done[keyOf(c, n)];
+  persist(); render();
+});
+$('#newCat').innerHTML = cats.map((c) => `<option>${esc(c)}</option>`).join('');
+$('#add').onclick = () => {
+  const n = $('#newName').value.trim(); if (!n) return;
+  const c = $('#newCat').value;
+  st.custom[c] = st.custom[c] || [];
+  if (!st.custom[c].includes(n)) st.custom[c].push(n);
+  $('#newName').value = '';
+  persist(); render();
+};
+$('#newName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#add').click(); } });
+$('#reset').onclick = () => { if (confirm('Alle Haken und eigenen Punkte löschen?')) { st = { done: {}, custom: {} }; persist(); render(); } };
+$('#print').onclick = () => print();
+render();
+</script>
+<style is:global>
+/* Elemente, die per JavaScript erzeugt werden, tragen keine Astro-Scope-Kennung – deshalb globale Regeln unter .cpl */
+.cpl .bar{height:10px;background:var(--bg);border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:8px 0 6px}
+.cpl .bar-fill{height:100%;width:0;background:var(--tape);transition:width .2s}
+.cpl .cat{margin:20px 0 4px}
+.cpl .cat h2{font-size:1.25rem;margin:0 0 6px}
+.cpl .cat ul{list-style:none;padding:0;margin:0}
+.cpl .cat li{display:flex;align-items:center;gap:8px;padding:3px 0}
+.cpl .ck{display:flex;gap:9px;align-items:center;font-weight:400;margin:0;flex:1;cursor:pointer;position:relative}
+.cpl .ck input{position:absolute;left:0;top:50%;transform:translateY(-50%);width:15px;height:15px;margin:0;opacity:0;pointer-events:none}
+.cpl .box{flex:0 0 auto;width:15px;height:15px;border:1.5px solid var(--mut);border-radius:3px;background:var(--bg);position:relative;transition:border-color .15s,background .15s}
+.cpl .ck:hover .box{border-color:var(--tape)}
+.cpl .ck input:focus-visible + .box{outline:2px solid var(--tape);outline-offset:2px}
+.cpl .ck input:checked + .box{background:var(--brand);border-color:var(--brand);color:#fff}
+.cpl .ck input:checked + .box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.cpl .cat li:has(.ck input:checked) .txt{color:var(--mut);text-decoration:line-through}
+.cpl .x{padding:0 9px;background:transparent;border:1px solid var(--line);color:var(--mut);line-height:1.6;flex:0 0 auto}
+.cpl .x:hover{background:transparent;border-color:var(--tape);color:var(--ink)}
+@media print{
+.cpl .bar{display:none}
+.cpl .box{border-color:#000;background:#fff}
+.cpl .ck input:checked + .box{background:#fff;border-color:#000;color:#000}
+.cpl .cat li:has(.ck input:checked) .txt{color:#333}
+}
+</style>

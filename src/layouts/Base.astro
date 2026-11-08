@@ -1,0 +1,57 @@
+---
+import '@fontsource/cormorant-garamond/600.css';
+import '@fontsource-variable/inter';
+const { title, desc, path, h1, lang = 'de' } = Astro.props;
+const B = import.meta.env.BASE_URL.replace(/\/$/, '');
+const url = `https://echtcosplay.de${B}/${path || ''}`;
+const year = new Date().getFullYear();
+const ld = JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebApplication', name: h1 || title, url, description: desc, applicationCategory: 'UtilitiesApplication', operatingSystem: 'Any', inLanguage: lang, isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' } });
+---
+<!doctype html>
+<html lang={lang}>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1a0f17">
+<title>{title}</title><meta name="description" content={desc}><link rel="canonical" href={url}>
+<meta property="og:title" content={title}><meta property="og:description" content={desc}><meta property="og:type" content="website"><meta property="og:locale" content="de_DE"><meta property="og:url" content={url}>
+{path && <script type="application/ld+json" set:html={ld}></script>}
+</head>
+<body>
+<header><a class="brand" href="https://echtcosplay.de/">EchtCosplay</a><nav><a href={`${B}/`}>Tools</a><a href="https://echtcosplay.de/shop/">Shop</a></nav></header>
+<main>{path && <p class="hint noprint"><a href={`${B}/`}>Alle Tools</a></p>}<slot /></main>
+<footer><div class="fi"><a class="brand" href="https://echtcosplay.de/">EchtCosplay</a><nav><a href="https://echtcosplay.de/shop/">Shop</a><a href="https://echtcosplay.de/impressum/">Impressum</a><a href="https://echtcosplay.de/privacy-policy/">Datenschutz</a></nav><small>© {year} EchtCosplay</small></div></footer>
+</body>
+</html>
+<style is:global>
+:root{color-scheme:dark;--bg:#1a0f17;--card:#2a1824;--ink:#f4eaf0;--mut:#bba5b3;--line:#4d3042;--brand:#8a3f6c;--tape:#d9b76e;--acc:#e6b8d2}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;font:400 1rem/1.65 "Inter Variable",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:radial-gradient(900px 420px at 50% -140px,color-mix(in srgb,var(--brand) 55%,transparent),transparent 72%) no-repeat,var(--bg)}
+a{color:var(--acc)}
+header{display:flex;justify-content:space-between;align-items:center;padding:22px max(20px,calc((100% - 920px)/2));border-bottom:1px solid var(--line)}
+.brand{font:600 1.75rem/1 "Cormorant Garamond",Georgia,serif;letter-spacing:.03em;color:var(--ink);text-decoration:none}
+header nav a,footer nav a{color:var(--mut);text-decoration:none;font-size:.95rem}header nav a{margin-left:24px}header nav a:hover{color:var(--ink)}
+main{flex:1;width:100%;max-width:920px;margin:0 auto;padding:36px 20px 72px}
+h1,h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600}
+h1{font-size:clamp(2.4rem,6.5vw,3.8rem);line-height:1.04;margin:.1em 0 .3em}h2{font-size:1.6rem;margin:1.4em 0 .4em}
+.hero{padding:24px 0 12px}.lead{color:var(--mut);font-size:1.12rem;max-width:60ch;margin:0 0 28px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px;margin:20px 0}
+label{display:block;margin:0 0 14px;font-weight:500;font-size:.9rem}label small{font-weight:400;color:var(--mut)}
+input,select,textarea{display:block;width:100%;margin-top:6px;padding:11px 12px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+input::placeholder{color:var(--mut);opacity:.7}input:focus,select:focus,textarea:focus{border-color:var(--tape)}
+:focus-visible{outline:2px solid var(--tape);outline-offset:2px}
+input[type=range]{padding:0;accent-color:var(--tape)}input[type=checkbox]{accent-color:var(--brand)}
+button{font:inherit;font-weight:600;padding:11px 20px;border:1px solid var(--brand);background:var(--brand);color:#fff;border-radius:8px;cursor:pointer;transition:background .15s,border-color .15s}button:hover{background:#9d4c7c}
+button.g{background:transparent;border-color:var(--line);color:var(--ink)}button.g:hover{border-color:var(--tape)}
+.grid{display:grid;gap:0 16px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.row{display:flex;gap:10px;flex-wrap:wrap}
+.r3{display:grid;gap:8px;grid-template-columns:1fr 100px 44px;margin-bottom:8px}.r3 input{margin:0}.r3 button{padding:0}
+.rb{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}.rb>*{flex:1 1 110px;margin:0}.rb>button{flex:0 0 auto}
+.rb label.sh{display:flex;gap:6px;align-items:center;font-weight:400;flex:0 0 auto}.sh input{width:auto;margin:0}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-weight:500}
+.big{font:600 2.4rem/1.1 "Cormorant Garamond",Georgia,serif;color:var(--tape);margin:.1em 0 .2em}.hint{color:var(--mut);font-size:.88rem}.warn{border-left:3px solid #e5646f;padding-left:12px}
+.tools{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));padding:0;margin:0;list-style:none}
+.tools a{display:block;height:100%;padding:26px 24px;border:1px solid var(--line);border-top:2px solid var(--brand);background:var(--card);color:var(--mut);text-decoration:none;border-radius:12px;transition:border-color .15s}.tools a:hover{border-color:var(--tape)}
+.tools b{display:block;margin-bottom:6px;color:var(--ink);font:600 1.45rem/1.2 "Cormorant Garamond",Georgia,serif}
+details{margin:12px 0}summary{cursor:pointer;font-weight:600}details p,details li{color:var(--mut)}
+footer{background:var(--brand);color:#fff;padding:36px 20px}.fi{max-width:920px;margin:0 auto;display:flex;flex-wrap:wrap;gap:12px 32px;align-items:center;justify-content:space-between}
+footer .brand{color:#fff;font-size:1.5rem}footer nav a{color:rgba(255,255,255,.88);margin-right:20px}footer nav a:hover{color:#fff}footer small{width:100%;opacity:.8}
+@media print{:root{--bg:#fff;--card:#fff;--ink:#000;--mut:#333;--line:#bbb;--tape:#000}body{background:#fff}header,footer,.noprint{display:none}}
+</style>

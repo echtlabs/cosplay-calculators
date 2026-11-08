@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+import { TOOLS } from '../tools.js';
+const B = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title="Kostenlose Cosplay-Tools und Rechner | EchtCosplay" desc="Kostenlose Cosplay-Rechner: Stoffmenge, Kreisrock, Prop-Größe, Perückenlänge und Con-Budget – direkt im Browser, ohne Anmeldung.">
+<section class="hero">
+<h1>Cosplay-Tools</h1>
+<p class="lead">Kostenlose Rechner zum Planen, Nähen und Bestellen. Deine Eingaben bleiben in deinem Browser und werden nicht an uns gesendet.</p>
+</section>
+<ul class="tools">{TOOLS.map((t) => <li><a href={`${B}/${t.slug}/`}><b>{t.name}</b>{t.short}</a></li>)}</ul>
+</Base>

@@ -1,0 +1,42 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Cosplay Prop-Skalierungsrechner: Waffen auf deine Größe" desc="Rechne Schwert, Stab oder Schild auf deine Körpergröße um. Mit Maßtabelle in cm und Zoll zum Ausdrucken und als Link zum Teilen." path="prop-skalierung/" h1="Cosplay Prop-Skalierungsrechner">
+<h1>Prop-Skalierungsrechner</h1>
+<p class="lead">Du bist kleiner oder größer als dein Charakter? Trage beide Größen und die Originalmaße des Props ein. Du bekommst die Maße, die zu dir passen.</p>
+<form id="f" class="card">
+<div class="grid">
+<label>Größe des Charakters (cm)<input name="c" inputmode="decimal"></label>
+<label>Deine Körpergröße (cm)<input name="h" inputmode="decimal"></label>
+<label>Zusatzfaktor in % <small>(+10 = etwas größer als maßstabsgetreu)</small><input name="x" inputmode="decimal"></label>
+</div>
+<p><b>Maße des Props beim Charakter</b></p>
+<div id="rows"></div>
+<button type="button" class="g" id="add">Maß hinzufügen</button>
+</form>
+<div id="out" class="card" aria-live="polite"></div>
+<div class="row noprint"><button id="print">Drucken</button><button id="share" class="g">Link kopieren</button></div>
+<details><summary>So wird gerechnet</summary><p>Faktor = deine Größe ÷ Größe des Charakters, danach mal (1 + Zusatzfaktor). Jedes Maß wird mit diesem Faktor multipliziert. Bei sehr großen Props lohnt ein Blick auf Gewicht, Transport und die Propregeln der Convention.</p></details>
+</Base>
+<script>
+import { $, num, f, esc, save, load, copyLink, bind } from '../lib/u.js';
+const F = $('#f'), rows = $('#rows'), out = $('#out');
+const st = load() || { c: 180, h: 165, x: 0, m: [['Gesamtlänge', 120], ['Breite', 25]] };
+for (const k of ['c', 'h', 'x']) F[k].value = st[k];
+const add = (n = '', v = '') => { const d = document.createElement('div'); d.className = 'r3'; d.innerHTML = '<input placeholder="Bezeichnung" aria-label="Bezeichnung"><input inputmode="decimal" placeholder="cm" aria-label="Originalmaß in cm"><button type="button" class="g" aria-label="Zeile entfernen">×</button>'; d.children[0].value = n; d.children[1].value = v; rows.append(d); };
+st.m.forEach((m) => add(...m));
+$('#add').onclick = () => { add(); };
+rows.onclick = (e) => { if (e.target.tagName === 'BUTTON') { e.target.parentNode.remove(); calc(); } };
+function calc() {
+  const c = num(F.c.value), h = num(F.h.value), x = num(F.x.value) || 0;
+  const raw = [...rows.children].map((r) => [r.children[0].value, r.children[1].value]);
+  const m = raw.map(([n, v]) => [n, num(v)]).filter((r) => isFinite(r[1]));
+  if (!(c > 0 && h > 0)) { out.textContent = 'Bitte beide Größen eingeben.'; return; }
+  const k = (h / c) * (1 + x / 100);
+  out.innerHTML = `<p class="big">Faktor ${f(k, 3)}</p><p>Dein Prop hat ${f(k * 100)} % der Originalgröße.</p>` + (m.length ? `<table><tr><th>Maß</th><th>Original</th><th>Für dich</th><th>Zoll</th></tr>${m.map(([n, v]) => `<tr><td>${esc(n)}</td><td>${f(v)} cm</td><td><b>${f(v * k)} cm</b></td><td>${f((v * k) / 2.54)}</td></tr>`).join('')}</table>` : '');
+  save({ c, h, x, m: raw });
+}
+$('#print').onclick = () => print();
+$('#share').onclick = (e) => copyLink(e.target);
+bind(F, calc);
+</script>

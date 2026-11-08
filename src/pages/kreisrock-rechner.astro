@@ -1,0 +1,89 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Kreisrock-Rechner: Stoffmenge, Schnittradius und Bahnen" desc="Berechne Voll-, Dreiviertel-, Halb- und Viertelkreis: Schnittradius, Stoffbreiten-Check, Bahnenzahl, Bund und Verschnitt." path="kreisrock-rechner/" h1="Kreisrock-Rechner">
+<h1>Kreisrock-Rechner</h1>
+<p class="lead">Form wählen, Taille und Länge eintragen – der Rechner prüft, ob dein Stoff für ein einziges Stück reicht, oder schlägt Bahnen vor.</p>
+<form id="f" class="card">
+<div class="grid">
+<label>Form<select name="f"><option value="voll">Vollkreis</option><option value="dreiviertel">Dreiviertelkreis</option><option value="halb">Halbkreis</option><option value="viertel">Viertelkreis</option></select></label>
+<label>Taillenumfang (cm)<input name="c" inputmode="decimal" value="74"></label>
+<label>Rocklänge (cm)<input name="l" inputmode="decimal" value="60"></label>
+<label>Stoffbreite (cm)<input name="w" inputmode="decimal" value="140"></label>
+</div>
+<div class="grid">
+<label>Nahtzugabe Taillenbund (cm)<input name="s" inputmode="decimal" value="1,5"></label>
+<label>Saumzugabe (cm)<input name="h" inputmode="decimal" value="2"></label>
+<label>Bundbreite fertig (cm)<input name="bw" inputmode="decimal" value="4"></label>
+<label>Verschnitt (%)<input name="v" inputmode="decimal" value="10"></label>
+</div>
+<div class="grid">
+<label>Preis pro Meter (€, optional)<input name="p" inputmode="decimal"></label>
+</div>
+</form>
+<div id="out" class="card" aria-live="polite"></div>
+<div class="row noprint"><button id="print">Drucken</button><button id="share" class="g">Link kopieren</button></div>
+<details><summary>Annahmen und Grenzen</summary><ul>
+<li>Taillenradius = Taillenumfang ÷ (2π × Kreisanteil), Kreisanteil 1 / 0,75 / 0,5 / 0,25. Schnittradius innen = Taillenradius + Nahtzugabe, Außenradius = Schnittradius + Länge + Saumzugabe.</li>
+<li>Einzelstück: Vollkreis im 4-lagigen Falz (braucht die doppelte Stoffbreite), sonst Zentrum an der Stoffkante bzw. an der Ecke – gleiche Annahmen wie im Stoffrechner.</li>
+<li>Bahnen, wenn die Stoffbreite nicht reicht: kleinste Bahnzahl aus 4/6/8/12/16/24/32, deren Saumbogen noch in die Stoffbreite passt. Die Bahnen liegen im Wechsel (auf/ab) in Reihen.</li>
+<li>Bund: Länge = Taillenumfang + 4 cm, doppelt gelegt (2 × Bundbreite + 2 cm); ist er länger als die Stoffbreite, wird er aus zwei Teilen zugeschnitten.</li>
+<li>Gemusterte, gerappte oder dehnbare Stoffe brauchen oft mehr. Werte sind Schätzungen ohne Gewähr.</li>
+</ul></details>
+</Base>
+<script>
+import { $, num, f, eur, save, load, copyLink, bind } from '../lib/u.js';
+const F = $('#f'), out = $('#out');
+const FR = { voll: 1, dreiviertel: 0.75, halb: 0.5, viertel: 0.25 };
+const LABEL = { voll: 'Vollkreis', dreiviertel: 'Dreiviertelkreis', halb: 'Halbkreis', viertel: 'Viertelkreis' };
+const D = { f: 'voll', c: 74, l: 60, w: 140, s: '1,5', h: 2, bw: 4, v: 10, p: '' };
+const st = load() || {};
+for (const k of Object.keys(D)) if (st[k] !== undefined) F[k].value = st[k];
+function calc() {
+  const part = FR[F.f.value] || 1;
+  const C = num(F.c.value), L = num(F.l.value), W = num(F.w.value);
+  const s = num(F.s.value) || 0, hem = num(F.h.value) || 0, bw = num(F.bw.value) || 0;
+  const waste = (num(F.v.value) || 0) / 100, pr = num(F.p.value);
+  if (!(C > 0 && L > 0 && W > 0)) { out.innerHTML = '<p class="warn">Bitte Taillenumfang, Länge und Stoffbreite eingeben.</p>'; return; }
+  const r = C / (2 * Math.PI * part);          // fertiger Taillenradius
+  const rc = r + s;                            // Schnittradius innen
+  const Rc = rc + L + hem;                     // Außenradius geschnitten
+  if (!(rc > 0 && Rc > rc)) { out.innerHTML = '<p class="warn">Die Maße ergeben keinen sinnvollen Schnitt.</p>'; return; }
+  const A = Math.PI * part * (Rc * Rc - rc * rc);
+  let len, methode, gores = 0;
+  if (part === 1 && W >= 2 * Rc) {
+    len = 2 * Rc; methode = 'ein Stück im 4-lagigen Falz';
+  } else if (W >= Rc) {
+    if (part === 1) { len = 4 * Rc; methode = 'zwei Halbkreise an der Stoffkante'; }
+    else if (part === 0.75) { len = 3 * Rc; methode = 'Halbkreis + Viertelkreis'; }
+    else if (part === 0.5) { len = 2 * Rc; methode = 'Halbkreis mit Zentrum an der Stoffkante'; }
+    else { len = Rc; methode = 'Viertelkreis an der Stoffecke'; }
+  } else {
+    const gs = [4, 6, 8, 12, 16, 24, 32];
+    const g = gs.find((k) => 2 * Rc * Math.sin(Math.PI * part / k) <= W);
+    if (!g) { out.innerHTML = `<p class="warn">Der Außenradius von ${f(Rc)} cm passt auch mit 32 Bahnen nicht auf ${f(W)} cm Stoffbreite. Nimm einen breiteren Stoff.</p>`; return; }
+    const ang = Math.PI * part / g;
+    const hs = Rc - rc * Math.cos(ang);                 // Bahnhöhe (radiale Ausdehnung)
+    const wbar = Math.sin(ang) * (Rc + rc);             // mittlere Bahnbreite
+    const perRow = Math.max(1, Math.floor(W / wbar));
+    const rows = Math.ceil(g / perRow);
+    len = rows * hs;
+    gores = g;
+    methode = `${g} Bahnen, ${perRow} pro Reihe (Reihen à ${f(hs)} cm)`;
+  }
+  const bandLen = C + 4, bandCut = 2 * bw + 2;
+  const bandF = bandLen <= W ? bandCut : 2 * bandCut;
+  const total = len + bandF;
+  const buy = Math.ceil((total * (1 + waste)) / 10) * 10;
+  let h = `<p class="big">${f(buy / 100, 2)} m</p>`;
+  h += `<p>Zuschnitt ${f(len)} cm (${methode}) + Bund ${f(bandF)} cm, plus ${f(waste * 100, 0)} % Verschnitt, aufgerundet auf 10 cm.</p>`;
+  if (gores) h += `<p class="warn">Stoffbreite ${f(W)} cm reicht nicht für ein einzelnes Stück – der Rock wird in ${gores} Bahnen geschnitten.</p>`;
+  h += `<table><tr><th>Maß</th><th>Wert</th></tr><tr><td>Form</td><td>${LABEL[F.f.value]}</td></tr><tr><td>Taillenradius (fertig)</td><td>${f(r)} cm</td></tr><tr><td>Schnittradius innen (mit Nahtzugabe)</td><td>${f(rc)} cm</td></tr><tr><td>Außenradius (geschnitten)</td><td>${f(Rc)} cm</td></tr><tr><td>Fläche ohne Bund</td><td>${f(A / 10000, 2)} m²</td></tr>${bandLen > W ? '<tr><td>Bund</td><td>aus zwei Teilen</td></tr>' : ''}</table>`;
+  if (pr > 0) h += `<p>Geschätzte Kosten: <b>${eur((buy / 100) * pr)}</b></p>`;
+  out.innerHTML = h;
+  save({ f: F.f.value, c: F.c.value, l: F.l.value, w: F.w.value, s: F.s.value, h: F.h.value, bw: F.bw.value, v: F.v.value, p: F.p.value });
+}
+$('#print').onclick = () => print();
+$('#share').onclick = (e) => copyLink(e.target);
+bind(F, calc);
+</script>

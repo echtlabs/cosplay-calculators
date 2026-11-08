@@ -1,0 +1,79 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Stoffrechner fürs Cosplay: Umhang, Kreisrock, Einzelteile" desc="Berechne die Stoffmenge für Kreisrock, Umhang, gerafften Rock oder rechteckige Teile. Mit Stoffbreite, Nahtzugabe, Verschnitt und Preis." path="stoffrechner/" h1="Cosplay Stoffrechner">
+<h1>Stoffrechner</h1>
+<p class="lead">Wähle, was du nähen willst, trage Maße und Stoffbreite ein und erfahre, wie viele Meter du kaufen solltest. Das Ergebnis ist eine Schätzung mit offen gelegten Annahmen.</p>
+<form id="f" class="card">
+<label>Was möchtest du berechnen?<select name="t"><option value="kreis">Umhang oder Kreisrock</option><option value="gerafft">Gerafften Rock</option><option value="teile">Rechteckige Einzelteile</option></select></label>
+<div class="grid">
+<label>Stoffbreite (cm)<input name="w" inputmode="decimal" value="140"></label>
+<label>Nahtzugabe (cm)<input name="s" inputmode="decimal" value="1,5"></label>
+<label>Verschnitt (%)<input name="v" inputmode="decimal" value="10"></label>
+<label>Preis pro Meter (€, optional)<input name="p" inputmode="decimal"></label>
+</div>
+<div data-t="kreis" class="grid">
+<label>Form<select name="k"><option value="voll">Vollkreis</option><option value="halb">Halbkreis</option></select></label>
+<label>Taillen- bzw. Halsumfang (cm)<input name="c1" inputmode="decimal" value="70"></label>
+<label>Länge (cm)<input name="l1" inputmode="decimal" value="60"></label>
+<label>Saumzugabe (cm)<input name="h1" inputmode="decimal" value="2"></label>
+</div>
+<div data-t="gerafft" class="grid" hidden>
+<label>Taillenumfang (cm)<input name="c2" inputmode="decimal" value="70"></label>
+<label>Länge (cm)<input name="l2" inputmode="decimal" value="50"></label>
+<label>Fülle <small>(1,5 bis 3)</small><input name="f2" inputmode="decimal" value="2"></label>
+<label>Saum + Bund (cm)<input name="e2" inputmode="decimal" value="6"></label>
+</div>
+<div data-t="teile" hidden><label>Teile: Breite x Höhe x Anzahl, ein Teil pro Zeile (cm)<textarea name="q" rows="5">60x45x2
+30x30x1</textarea></label></div>
+</form>
+<div id="out" class="card" aria-live="polite"></div>
+<details><summary>Annahmen und Grenzen</summary><ul>
+<li>Kreis: Innenradius = Umfang ÷ 2π (Vollkreis) bzw. ÷ π (Halbkreis); Außenradius = Innenradius + Länge + Saum. Ist der Stoff schmaler als der Durchmesser, wird in Hälften geteilt (Mittelnaht mit Nahtzugabe).</li>
+<li>Gerafft: Rockbreite = Umfang × Fülle. Es wird die günstigere Lage gewählt: Bahnen quer oder ein langer Streifen längs.</li>
+<li>Einzelteile: Teile werden zeilenweise nebeneinander gelegt und nur gedreht, wenn sie sonst nicht auf den Stoff passen. Der Fadenlauf bleibt so erhalten.</li>
+<li>Stoffe mit Muster, Strich oder Flor brauchen oft mehr. Rechne dann mehr Verschnitt ein.</li></ul></details>
+</Base>
+<script>
+import { $, num, f, eur, bind } from '../lib/u.js';
+const F = $('#f'), out = $('#out');
+const bad = (m) => { out.innerHTML = `<p class="warn">${m}</p>`; };
+const pack = (ps, W) => { const sh = []; for (const [w, h] of ps.sort((a, b) => b[1] - a[1])) { let s = sh.find((s) => s.r >= w); if (!s) { s = { h, r: W }; sh.push(s); } s.r -= w; } return sh.reduce((a, s) => a + s.h, 0); };
+function calc() {
+  const t = F.t.value;
+  document.querySelectorAll('[data-t]').forEach((e) => (e.hidden = e.dataset.t !== t));
+  const W = num(F.w.value), s = num(F.s.value) || 0, waste = (num(F.v.value) || 0) / 100, pr = num(F.p.value);
+  if (!(W > 0)) return bad('Bitte die Stoffbreite eingeben.');
+  let len, notes = [];
+  if (t === 'kreis') {
+    const C = num(F.c1.value), L = num(F.l1.value), hem = num(F.h1.value) || 0, full = F.k.value === 'voll';
+    if (!(C > 0 && L > 0)) return bad('Bitte Umfang und Länge eingeben.');
+    const r = full ? C / (2 * Math.PI) : C / Math.PI, R = r + L + hem;
+    notes.push(`Innenradius ${f(r)} cm, Außenradius ${f(R)} cm`);
+    if (full) len = W >= 2 * R ? 2 * R : W >= R + s ? 4 * R : NaN;
+    else len = W >= 2 * R ? R + s : W >= R + s ? 2 * R : NaN;
+    if (isNaN(len)) return bad(`Der Außenradius (${f(R)} cm) ist größer als die Stoffbreite. Wähle einen breiteren Stoff oder teile das Teil in Bahnen.`);
+  } else if (t === 'gerafft') {
+    const C = num(F.c2.value), L = num(F.l2.value), fl = num(F.f2.value), ex = num(F.e2.value) || 0;
+    if (!(C > 0 && L > 0 && fl > 0 && W > 2 * s)) return bad('Bitte Umfang, Länge und Fülle eingeben.');
+    const tw = C * fl, ph = L + ex, n = Math.ceil(tw / (W - 2 * s)), a = n * ph, b = ph <= W ? tw + 2 * s : Infinity;
+    len = Math.min(a, b);
+    notes.push(`Rockbreite ${f(tw)} cm, Rocklänge inkl. Saum und Bund ${f(ph)} cm`, b < a ? 'Lage: ein langer Streifen längs' : `Lage: ${n} Bahn(en) quer`);
+  } else {
+    const ps = [];
+    for (const line of F.q.value.split('\n')) {
+      const m = line.match(/([\d.,]+)\s*[x×*]\s*([\d.,]+)(?:\s*[x×*]\s*(\d+))?/i);
+      if (!m) continue;
+      let w = num(m[1]) + 2 * s, h = num(m[2]) + 2 * s;
+      if (w > W) { if (h <= W) [w, h] = [h, w]; else return bad(`Das Teil ${m[1]} x ${m[2]} cm passt nicht auf die Stoffbreite.`); }
+      for (let i = 0; i < (+m[3] || 1); i++) ps.push([w, h]);
+    }
+    if (!ps.length) return bad('Bitte mindestens ein Teil eingeben, z. B. 60x45x2.');
+    len = pack(ps, W);
+    notes.push(`${ps.length} Teile, Nahtzugabe ${f(s)} cm an jeder Kante`);
+  }
+  const buy = Math.ceil((len * (1 + waste)) / 10) * 10;
+  out.innerHTML = `<p class="big">${f(buy / 100, 2)} m</p><p>${f(len)} cm Zuschnitt plus ${f(waste * 100, 0)} % Verschnitt, aufgerundet auf 10 cm.</p>` + (pr > 0 ? `<p>Geschätzte Kosten: <b>${eur((buy / 100) * pr)}</b></p>` : '') + `<ul>${notes.map((n) => `<li>${n}</li>`).join('')}</ul>`;
+}
+bind(F, calc);
+</script>
